@@ -7,7 +7,9 @@ __author__ = 'Michael Liao'
 async web application.
 '''
 
-import logging; logging.basicConfig(level=logging.INFO)
+import logging;
+
+logging.basicConfig(level=logging.INFO)
 
 import asyncio, os, json, time
 from datetime import datetime
@@ -22,15 +24,17 @@ from coroweb import add_routes, add_static
 
 from handlers import cookie2user, COOKIE_NAME
 
+
+# 初始化jinja2
 def init_jinja2(app, **kw):
     logging.info('init jinja2...')
     options = dict(
-        autoescape = kw.get('autoescape', True),
-        block_start_string = kw.get('block_start_string', '{%'),
-        block_end_string = kw.get('block_end_string', '%}'),
-        variable_start_string = kw.get('variable_start_string', '{{'),
-        variable_end_string = kw.get('variable_end_string', '}}'),
-        auto_reload = kw.get('auto_reload', True)
+        autoescape=kw.get('autoescape', True),
+        block_start_string=kw.get('block_start_string', '{%'),
+        block_end_string=kw.get('block_end_string', '%}'),
+        variable_start_string=kw.get('variable_start_string', '{{'),
+        variable_end_string=kw.get('variable_end_string', '}}'),
+        auto_reload=kw.get('auto_reload', True)
     )
     path = kw.get('path', None)
     if path is None:
@@ -43,6 +47,8 @@ def init_jinja2(app, **kw):
             env.filters[name] = f
     app['__templating__'] = env
 
+
+# 统一处理日志APIError
 @asyncio.coroutine
 def logger_factory(app, handler):
     @asyncio.coroutine
@@ -50,8 +56,11 @@ def logger_factory(app, handler):
         logging.info('Request: %s %s' % (request.method, request.path))
         # yield from asyncio.sleep(0.3)
         return (yield from handler(request))
+
     return logger
 
+
+# 统一处理cookie认证
 @asyncio.coroutine
 def auth_factory(app, handler):
     @asyncio.coroutine
@@ -67,8 +76,11 @@ def auth_factory(app, handler):
         if request.path.startswith('/manage/') and (request.__user__ is None or not request.__user__.admin):
             return web.HTTPFound('/signin')
         return (yield from handler(request))
+
     return auth
 
+
+# 统一处理请求参数
 @asyncio.coroutine
 def data_factory(app, handler):
     @asyncio.coroutine
@@ -81,8 +93,11 @@ def data_factory(app, handler):
                 request.__data__ = yield from request.post()
                 logging.info('request form: %s' % str(request.__data__))
         return (yield from handler(request))
+
     return parse_data
 
+
+# 统一处理返回值
 @asyncio.coroutine
 def response_factory(app, handler):
     @asyncio.coroutine
@@ -104,7 +119,8 @@ def response_factory(app, handler):
         if isinstance(r, dict):
             template = r.get('__template__')
             if template is None:
-                resp = web.Response(body=json.dumps(r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8'))
+                resp = web.Response(
+                    body=json.dumps(r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8'))
                 resp.content_type = 'application/json;charset=utf-8'
                 return resp
             else:
@@ -122,8 +138,11 @@ def response_factory(app, handler):
         resp = web.Response(body=str(r).encode('utf-8'))
         resp.content_type = 'text/plain;charset=utf-8'
         return resp
+
     return response
 
+
+# 日期过滤器，将浮点数转为日期字符串
 def datetime_filter(t):
     delta = int(time.time() - t)
     if delta < 60:
@@ -137,23 +156,32 @@ def datetime_filter(t):
     dt = datetime.fromtimestamp(t)
     return u'%s年%s月%s日' % (dt.year, dt.month, dt.day)
 
+
 @asyncio.coroutine
 def init(loop):
     # 创建数据库连接池
     yield from orm.create_pool(loop=loop, **configs.db)
+
+    # Application对象，一个全局的对象，用于记录路由，静态资源路径，日志等全局信息
+    # 个人理解：等同于Java中ApplicationContext
     app = web.Application(loop=loop, middlewares=[
         logger_factory, auth_factory, response_factory
     ])
 
-    # 初始化jinja2框架
+    # 初始化jinja2框架，指定过滤器
     init_jinja2(app, filters=dict(datetime=datetime_filter))
+
+    # 初始化路由信息
     add_routes(app, 'handlers')
+
+    # 初始静态资源信息
     add_static(app)
 
     # 创建服务，监听9000端口
     srv = yield from loop.create_server(app.make_handler(), '127.0.0.1', 9000)
     logging.info('server started at http://127.0.0.1:9000...')
     return srv
+
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(init(loop))
