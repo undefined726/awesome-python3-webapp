@@ -49,6 +49,7 @@ configs = config_default.configs
 
 try:
     import config_override
+    # 合并两个配置文件
     configs = merge(configs, config_override.configs)
 except ImportError:
     pass
