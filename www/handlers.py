@@ -20,10 +20,12 @@ from config import configs
 COOKIE_NAME = 'awesession'
 _COOKIE_KEY = configs.session.secret
 
+# 权限校验
 def check_admin(request):
     if request.__user__ is None or not request.__user__.admin:
         raise APIPermissionError()
 
+# 获取页数
 def get_page_index(page_str):
     p = 1
     try:
@@ -34,6 +36,7 @@ def get_page_index(page_str):
         p = 1
     return p
 
+# 用户转cookie
 def user2cookie(user, max_age):
     '''
     Generate cookie str by user.
@@ -44,6 +47,7 @@ def user2cookie(user, max_age):
     L = [user.id, expires, hashlib.sha1(s.encode('utf-8')).hexdigest()]
     return '-'.join(L)
 
+# 文本转html
 def text2html(text):
     lines = map(lambda s: '<p>%s</p>' % s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'), filter(lambda s: s.strip() != '', text.split('\n')))
     return ''.join(lines)
@@ -74,6 +78,8 @@ def cookie2user(cookie_str):
     except Exception as e:
         logging.exception(e)
         return None
+
+# 下面则全是控制器
 
 @get('/')
 def index(*, page='1'):

@@ -10,6 +10,7 @@ import aiomysql
 def log(sql, args=()):
     logging.info('SQL: %s' % sql)
 
+# 创建mysql连接池
 @asyncio.coroutine
 def create_pool(loop, **kw):
     logging.info('create database connection pool...')
@@ -27,6 +28,7 @@ def create_pool(loop, **kw):
         loop=loop
     )
 
+# 通用查询方法
 @asyncio.coroutine
 def select(sql, args, size=None):
     log(sql, args)
@@ -42,6 +44,7 @@ def select(sql, args, size=None):
         logging.info('rows returned: %s' % len(rs))
         return rs
 
+# 通用更新方法(insert, delete, update)
 @asyncio.coroutine
 def execute(sql, args, autocommit=True):
     log(sql)
@@ -61,12 +64,14 @@ def execute(sql, args, autocommit=True):
             raise
         return affected
 
+# sql参数拼接
 def create_args_string(num):
     L = []
     for n in range(num):
         L.append('?')
     return ', '.join(L)
 
+# 字段类型超类
 class Field(object):
 
     def __init__(self, name, column_type, primary_key, default):
@@ -103,6 +108,8 @@ class TextField(Field):
     def __init__(self, name=None, default=None):
         super().__init__(name, 'text', False, default)
 
+# 元类，整个orm框架的核心，其主要的作用是拿到使用该元类的对象属性来构造映射关系和增删改查的方法
+# 个人理解：总感觉元类有一点点Java中反射的意思
 class ModelMetaclass(type):
 
     def __new__(cls, name, bases, attrs):
@@ -139,6 +146,7 @@ class ModelMetaclass(type):
         attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (tableName, primaryKey)
         return type.__new__(cls, name, bases, attrs)
 
+# 基类，实体类的超类，提供通用增删改查方法
 class Model(dict, metaclass=ModelMetaclass):
 
     def __init__(self, **kw):
